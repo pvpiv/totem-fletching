@@ -86,20 +86,22 @@ public class EntVisitOverlay extends Overlay {
         graphics.setColor(COLOR_BG);
         graphics.fillOval(cx, cy, TIMER_DIAMETER, TIMER_DIAMETER);
 
-        // Coloured arc — starts at 12 o'clock (90°) and sweeps clockwise (negative direction)
-        // Degrees sweep: full circle = 360°, drains clockwise
+        // Coloured arc — starts at 12 o'clock (90° in Java coords).
+        // Positive arcAngle = counterclockwise in Java, so the arc occupies the LEFT side first.
+        // This means the RIGHT side drains first = clockwise drain from the viewer's perspective.
         int sweepDegrees = Math.round(360 * fraction);
         graphics.setColor(getTimerColor(fraction));
         graphics.fillArc(cx, cy, TIMER_DIAMETER, TIMER_DIAMETER,
-                90, -sweepDegrees);  // negative = clockwise drain
+                90, sweepDegrees);  // positive = clockwise drain effect
 
         // White border
         graphics.setColor(COLOR_BORDER);
         graphics.setStroke(new BasicStroke(1.5f));
         graphics.drawOval(cx, cy, TIMER_DIAMETER, TIMER_DIAMETER);
 
-        // Tick count text centred inside the circle
-        String text = String.valueOf(remaining);
+        // Seconds remaining, centred inside the circle. 100 ticks/min = 0.6 s/tick.
+        int secondsRemaining = (int) Math.ceil(remaining / EntVisitService.TICKS_PER_SECOND);
+        String text = secondsRemaining + "s";
         FontMetrics fm = graphics.getFontMetrics();
         int textX = cx + (TIMER_DIAMETER - fm.stringWidth(text)) / 2;
         int textY = cy + (TIMER_DIAMETER + fm.getAscent() - fm.getDescent()) / 2;

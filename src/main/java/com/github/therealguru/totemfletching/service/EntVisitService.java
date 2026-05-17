@@ -2,12 +2,13 @@ package com.github.therealguru.totemfletching.service;
 
 import com.github.therealguru.totemfletching.model.Totem;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.NPC;
 import net.runelite.api.events.GameTick;
@@ -22,39 +23,45 @@ public class EntVisitService {
     /** NPC IDs for the Ent (Vale Totems). Normal = 14634, Buffed = 14635. */
     private static final List<Integer> ENT_NPC_IDS = List.of(14634, 14635);
 
-    /**
-     * How close (in tiles) the Ent must be to a totem to trigger the visit timer.
-     * The Ent stops directly on or next to the totem game object.
-     */
+    /** How close (in tiles) the Ent must be to a totem to trigger the visit timer. */
     private static final int TOTEM_PROXIMITY_TILES = 5;
 
     /**
-     * Duration of an Ent offering visit in game ticks.
-     * The Ent stays at the totem for approximately 14 ticks before moving on.
-     * Adjust this constant if in-game testing shows a different value.
+     * Duration of an Ent offering visit in game ticks (confirmed ~20 ticks in-game).
+     * At 100 ticks/min (0.6 s/tick) this equals 12 seconds.
      */
-    public static final int ENT_VISIT_DURATION_TICKS = 14;
+    public static final int ENT_VISIT_DURATION_TICKS = 20;
+
+    /** Game ticks per minute — 100 ticks/min = 0.6 s/tick. */
+    public static final double TICKS_PER_SECOND = 100.0 / 60.0;
+
+    /**
+     * After a visit countdown reaches 0, suppress a new visit for this many ticks.
+     * Prevents the timer from immediately restarting while the Ent is still walking away.
+     */
+    private static final int POST_VISIT_COOLDOWN_TICKS = 8;
 
     private final TotemService totemService;
 
-    /**
-     * Maps each active Ent NPC ID → the totem it is visiting and ticks remaining.
-     */
+    /** Active visit countdowns: entKey → EntVisit */
     private final Map<Integer, EntVisit> activeVisits = new HashMap<>();
 
-    /**
-     * Tracks which NPCs are Ents currently near totems, keyed by NPC hash code.
-     */
+    /** All Ent NPCs currently in render range: entKey → NPC */
     private final Map<Integer, NPC> trackedEnts = new HashMap<>();
+
+    /**
+     * Per-Ent cooldown after a visit naturally ends (reaches 0).
+     * Prevents the timer restarting immediately while the Ent lingers nearby.
+     * entKey → ticks of cooldown remaining
+     */
+    private final Map<Integer, Integer> postVisitCooldown = new HashMap<>();
 
     @Inject
     public EntVisitService(TotemService totemService) {
         this.totemService = totemService;
     }
 
-    /**
-     * Returns current active Ent visits: maps each visited Totem → ticks remaining.
-     */
+    /** Returns active Ent visits as Totem → ticks remaining. */
     public Map<Totem, Integer> getActiveEntVisits() {
         Map<Totem, Integer> result = new HashMap<>();
         for (EntVisit visit : activeVisits.values()) {
@@ -67,17 +74,16 @@ public class EntVisitService {
         NPC npc = event.getNpc();
         if (!isEnt(npc)) return;
 
-        trackedEnts.put(System.identityHashCode(npc), npc);
-        log.debug("[EntVisit] Ent spawned: id={} animId={}",
-                npc.getId(), npc.getAnimation());
+        int key = System.identityHashCode(npc);
+        trackedEnts.put(key, npc);
+        log.debug("[EntVisit] Ent spawned: id={} animId={}", npc.getId(), npc.getAnimation());
     }
 
     public void onNpcChanged(NpcChanged event) {
         NPC npc = event.getNpc();
         if (!isEnt(npc)) return;
 
-        log.debug("[EntVisit] Ent changed: id={} animId={}",
-                npc.getId(), npc.getAnimation());
+        log.debug("[EntVisit] Ent changed: id={} animId={}", npc.getId(), npc.getAnimation());
     }
 
     public void onNpcDespawned(NpcDespawned event) {
@@ -87,14 +93,25 @@ public class EntVisitService {
         int key = System.identityHashCode(npc);
         trackedEnts.remove(key);
         activeVisits.remove(key);
+        postVisitCooldown.remove(key);
         log.debug("[EntVisit] Ent despawned: id={}", npc.getId());
     }
 
-    /**
-     * Called every game tick. Updates timers and detects new Ent visits via proximity.
-     */
+    /** Called every game tick. Updates all timers and detects new Ent visits via proximity. */
     public void onGameTick(GameTick event) {
         List<Totem> totems = totemService.getTotems();
+
+        // Tick down all post-visit cooldowns; remove expired ones
+        Set<Integer> expiredCooldowns = new HashSet<>();
+        for (Map.Entry<Integer, Integer> entry : postVisitCooldown.entrySet()) {
+            int remaining = entry.getValue() - 1;
+            if (remaining <= 0) {
+                expiredCooldowns.add(entry.getKey());
+            } else {
+                entry.setValue(remaining);
+            }
+        }
+        expiredCooldowns.forEach(postVisitCooldown::remove);
 
         for (Map.Entry<Integer, NPC> entry : trackedEnts.entrySet()) {
             int entKey = entry.getKey();
@@ -109,25 +126,27 @@ public class EntVisitService {
                 EntVisit existing = activeVisits.get(entKey);
 
                 if (existing == null || !existing.totem.equals(totem)) {
-                    // Ent just arrived at this totem — start a fresh countdown
-                    activeVisits.put(entKey, new EntVisit(totem, ENT_VISIT_DURATION_TICKS));
-                    log.debug("[EntVisit] Ent {} started visiting totem {} — {} ticks",
-                            ent.getId(), totem.getTotemId(), ENT_VISIT_DURATION_TICKS);
+                    // Only start a new visit if not in post-visit cooldown for this Ent
+                    if (!postVisitCooldown.containsKey(entKey)) {
+                        activeVisits.put(entKey, new EntVisit(totem, ENT_VISIT_DURATION_TICKS));
+                        log.debug("[EntVisit] Ent {} started visiting totem {} — {} ticks",
+                                ent.getId(), totem.getTotemId(), ENT_VISIT_DURATION_TICKS);
+                    }
                 } else {
-                    // Ent is still at the same totem — count down
                     existing.ticksRemaining--;
                     if (existing.ticksRemaining <= 0) {
                         activeVisits.remove(entKey);
-                        log.debug("[EntVisit] Ent {} finished visiting totem {}",
+                        postVisitCooldown.put(entKey, POST_VISIT_COOLDOWN_TICKS);
+                        log.debug("[EntVisit] Ent {} finished visiting totem {} — cooldown started",
                                 ent.getId(), totem.getTotemId());
                     }
                 }
             } else {
-                // Ent moved away — clear any active visit for it
+                // Ent moved away — clear any active visit for it (left early)
                 if (activeVisits.containsKey(entKey)) {
-                    log.debug("[EntVisit] Ent {} left totem area early",
-                            ent.getId());
                     activeVisits.remove(entKey);
+                    postVisitCooldown.put(entKey, POST_VISIT_COOLDOWN_TICKS);
+                    log.debug("[EntVisit] Ent {} left totem area early", ent.getId());
                 }
             }
         }
@@ -136,6 +155,7 @@ public class EntVisitService {
     public void clearVisits() {
         activeVisits.clear();
         trackedEnts.clear();
+        postVisitCooldown.clear();
     }
 
     private Optional<Totem> findNearbyTotem(NPC ent, List<Totem> totems) {
