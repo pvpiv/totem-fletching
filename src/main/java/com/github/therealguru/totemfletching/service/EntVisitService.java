@@ -37,11 +37,15 @@ public class EntVisitService {
     /** Game ticks per minute — 100 ticks/min = 0.6 s/tick. */
     public static final double TICKS_PER_SECOND = 100.0 / 60.0;
 
+    /** Animation ID the Ent plays when it begins to leave after granting offerings. */
+    private static final int ENT_DEPARTURE_ANIM = 12511;
+
     /**
-     * After a visit countdown reaches 0, suppress a new visit for this many ticks.
-     * Prevents the timer from immediately restarting while the Ent is still walking away.
+     * After the departure animation fires, suppress a new visit for this many ticks.
+     * The Ent lingers ~8 ticks after the departure anim before leaving the area;
+     * 20 ticks gives comfortable clearance so the timer never restarts.
      */
-    private static final int POST_VISIT_COOLDOWN_TICKS = 8;
+    private static final int POST_VISIT_COOLDOWN_TICKS = 20;
 
     private final TotemService totemService;
 
@@ -86,6 +90,14 @@ public class EntVisitService {
         if (!isEnt(npc)) return;
 
         log.debug("[EntVisit] Ent changed: id={} animId={}", npc.getId(), npc.getAnimation());
+
+        if (npc.getAnimation() == ENT_DEPARTURE_ANIM) {
+            int key = System.identityHashCode(npc);
+            activeVisits.remove(key);
+            postVisitCooldown.put(key, POST_VISIT_COOLDOWN_TICKS);
+            log.debug("[EntVisit] Ent {} departure anim detected — visit ended, cooldown {} ticks",
+                    npc.getId(), POST_VISIT_COOLDOWN_TICKS);
+        }
     }
 
     public void onNpcDespawned(NpcDespawned event) {
