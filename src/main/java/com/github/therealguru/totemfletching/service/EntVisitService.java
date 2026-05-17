@@ -25,7 +25,7 @@ public class EntVisitService {
     private static final List<Integer> ENT_NPC_IDS = List.of(14634, 14635);
 
     /** How close (in tiles) the Ent must be to a totem to trigger the visit timer. */
-    private static final int TOTEM_PROXIMITY_TILES = 3;
+    private static final int TOTEM_PROXIMITY_TILES = 5;
 
     /**
      * Duration of an Ent offering visit in game ticks.
