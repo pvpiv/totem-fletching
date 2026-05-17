@@ -1,6 +1,7 @@
 package com.github.therealguru.totemfletching.service;
 
 import java.util.Set;
+import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -45,8 +46,11 @@ public class DecorationTrackerService {
             22266  // Redwood shield
     );
 
-    /** Decorations required to fully deck all 8 totems (8 totems × 4 decorations). */
-    static final int TOTAL_DECORATIONS_NEEDED = 32;
+    /** Decorations required per totem site (always 4). */
+    private static final int DECORATIONS_PER_TOTEM = 4;
+
+    @Inject
+    private TotemService totemService;
 
     /** Decoration items in the player's main inventory (shown as "In bag"). */
     @Getter
@@ -54,27 +58,6 @@ public class DecorationTrackerService {
 
     /** Decoration items currently equipped (e.g. redwood hiking staff, shield). */
     private int equippedDecorationCount = 0;
-
-    /**
-     * How many items the player still needs to fletch to finish the run.
-     * Calculated on run-start as max(0, 32 - startingTotal), then decremented
-     * each time the combined total (inventory + equipped) rises.
-     */
-    private int runFletchTarget = 8;
-
-    /** Cumulative count of new decoration items obtained since the run started. */
-    private int itemsObtained = 0;
-
-    /**
-     * Last known combined total (inventory + equipped).
-     * Only increases in this total count as "new items obtained" (fletched, traded, picked up).
-     * Equipping/unequipping moves items between containers — total unchanged, no count change.
-     * -1 means "not yet seen".
-     */
-    private int lastTotalCount = -1;
-
-    /** Used to detect the moment the player enters Auburnvale. */
-    private boolean wasInAuburnvale = false;
 
     public void onItemContainerChanged(ItemContainerChanged event) {
         int containerId = event.getContainerId();
@@ -84,48 +67,24 @@ public class DecorationTrackerService {
         } else if (containerId == InventoryID.EQUIPMENT.getId()) {
             equippedDecorationCount = countDecorations(event.getItemContainer());
             log.debug("Decoration items equipped: {}", equippedDecorationCount);
-        } else {
-            return;
         }
-
-        int newTotal = inventoryDecorationCount + equippedDecorationCount;
-
-        // Only count increases in the combined total.
-        // Equipping/unequipping shifts between containers but leaves total unchanged.
-        if (lastTotalCount >= 0 && newTotal > lastTotalCount) {
-            itemsObtained += (newTotal - lastTotalCount);
-            log.debug("New decorations obtained +{}, total this run: {}", newTotal - lastTotalCount, itemsObtained);
-        }
-
-        lastTotalCount = newTotal;
     }
 
     /**
-     * Called each game tick with the player's current Auburnvale status.
-     * Automatically starts a new run when the player enters the area.
+     * Returns how many more decoration items need to be fletched to fully decorate all totems.
+     *
+     * <p>Formula: Σ(4 - totem.decoration) for all 8 totems, minus items already in hand
+     * (inventory + equipped). This stays accurate at all times — during banking, equipping,
+     * unequipping, and totem decay — because it is derived entirely from live game state.
      */
-    public void updateAuburnvaleState(boolean isInAuburnvale) {
-        if (isInAuburnvale && !wasInAuburnvale) {
-            startRun();
-        }
-        wasInAuburnvale = isInAuburnvale;
-    }
-
-    /** Manually reset the run counter (e.g. via right-click on the overlay). */
-    public void resetRun() {
-        startRun();
-    }
-
-    /** How many more items the player needs to fletch to complete the current run. */
     public int getItemsToFletch() {
-        return Math.max(0, runFletchTarget - itemsObtained);
-    }
-
-    private void startRun() {
-        int startingTotal = inventoryDecorationCount + equippedDecorationCount;
-        runFletchTarget = Math.max(0, TOTAL_DECORATIONS_NEEDED - startingTotal);
-        itemsObtained = 0;
-        log.debug("Run started — total decorations: {}, target to fletch: {}", startingTotal, runFletchTarget);
+        int totalNeeded = totemService.getTotems().stream()
+                .mapToInt(t -> Math.max(0, DECORATIONS_PER_TOTEM - t.getDecoration()))
+                .sum();
+        int inHand = inventoryDecorationCount + equippedDecorationCount;
+        int result = Math.max(0, totalNeeded - inHand);
+        log.debug("To fletch: {} (totalNeeded={}, inHand={})", result, totalNeeded, inHand);
+        return result;
     }
 
     private int countDecorations(ItemContainer container) {

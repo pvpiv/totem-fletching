@@ -8,10 +8,8 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import javax.inject.Inject;
 import net.runelite.api.Client;
-import net.runelite.api.MenuAction;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.game.ItemManager;
-import net.runelite.client.ui.overlay.OverlayMenuEntry;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.components.ImageComponent;
@@ -19,9 +17,6 @@ import net.runelite.client.ui.overlay.components.LineComponent;
 import net.runelite.client.ui.overlay.components.TitleComponent;
 
 public class DecorationTrackerOverlay extends OverlayPanel {
-
-    public static final String RESET_OPTION = "Reset run";
-    public static final String RESET_TARGET = "Decorations";
 
     private static final Color COLOR_READY = Color.decode("#9CF575");
     private static final Color COLOR_WARN = Color.decode("#FFD700");
@@ -45,7 +40,6 @@ public class DecorationTrackerOverlay extends OverlayPanel {
         this.trackerService = trackerService;
         this.itemManager = itemManager;
         setPosition(OverlayPosition.TOP_RIGHT);
-        getMenuEntries().add(new OverlayMenuEntry(MenuAction.RUNELITE_OVERLAY, RESET_OPTION, RESET_TARGET));
     }
 
     @Override
