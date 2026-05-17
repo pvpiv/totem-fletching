@@ -27,10 +27,12 @@ public class EntVisitService {
     private static final int TOTEM_PROXIMITY_TILES = 5;
 
     /**
-     * Duration of an Ent offering visit in game ticks (confirmed ~20 ticks in-game).
-     * At 100 ticks/min (0.6 s/tick) this equals 12 seconds.
+     * Duration of an Ent offering visit in game ticks.
+     * Observed: departure animation (animId=12511) fires ~9 seconds after proximity
+     * detection, which is 15 ticks at 0.6 s/tick.
+     * The countdown hitting 0 aligns with the offerings being granted and the Ent leaving.
      */
-    public static final int ENT_VISIT_DURATION_TICKS = 20;
+    public static final int ENT_VISIT_DURATION_TICKS = 15;
 
     /** Game ticks per minute — 100 ticks/min = 0.6 s/tick. */
     public static final double TICKS_PER_SECOND = 100.0 / 60.0;

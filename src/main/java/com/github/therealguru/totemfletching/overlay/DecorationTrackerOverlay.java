@@ -13,10 +13,8 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
-import net.runelite.client.ui.overlay.components.ComponentOrientation;
 import net.runelite.client.ui.overlay.components.ImageComponent;
 import net.runelite.client.ui.overlay.components.LineComponent;
-import net.runelite.client.ui.overlay.components.PanelComponent;
 import net.runelite.client.ui.overlay.components.TitleComponent;
 
 public class DecorationTrackerOverlay extends OverlayPanel {
@@ -61,22 +59,17 @@ public class DecorationTrackerOverlay extends OverlayPanel {
         int inInventory = trackerService.getInventoryDecorationCount();
         int toFletch = trackerService.getItemsToFletch(totemService.getTotems());
 
-        // Knife icon header row
-        BufferedImage knifeIcon = itemManager.getImage(ItemID.KNIFE);
-        if (knifeIcon != null) {
-            PanelComponent iconRow = new PanelComponent();
-            iconRow.setOrientation(ComponentOrientation.HORIZONTAL);
-            iconRow.getChildren().add(new ImageComponent(knifeIcon));
-            iconRow.setBackgroundColor(new Color(0, 0, 0, 0));
-            panelComponent.getChildren().add(iconRow);
-        }
-
         panelComponent.getChildren().add(
                 TitleComponent.builder().text("Decorations").build());
 
+        BufferedImage knifeIcon = itemManager.getImage(ItemID.KNIFE);
+        if (knifeIcon != null) {
+            panelComponent.getChildren().add(new ImageComponent(knifeIcon));
+        }
+
         panelComponent.getChildren().add(
                 LineComponent.builder()
-                        .left("In inventory:")
+                        .left("In bag:")
                         .right(String.valueOf(inInventory))
                         .rightColor(inInventory >= 4 ? COLOR_READY : COLOR_WARN)
                         .build());
@@ -92,7 +85,7 @@ public class DecorationTrackerOverlay extends OverlayPanel {
 
         panelComponent.getChildren().add(
                 LineComponent.builder()
-                        .left("Still to fletch:")
+                        .left("To fletch:")
                         .right(String.valueOf(toFletch))
                         .rightColor(toFletchColor)
                         .build());
