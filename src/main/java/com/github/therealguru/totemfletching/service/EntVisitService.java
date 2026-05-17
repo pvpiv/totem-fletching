@@ -143,10 +143,13 @@ public class EntVisitService {
                     // Only start a new visit if not in post-visit cooldown for this Ent
                     if (!postVisitCooldown.containsKey(entKey)) {
                         activeVisits.put(entKey, new EntVisit(totem, ENT_VISIT_DURATION_TICKS));
-                        log.debug("[EntVisit] Ent {} started visiting totem {} — {} ticks",
-                                ent.getId(), totem.getTotemId(), ENT_VISIT_DURATION_TICKS);
+                        log.debug("[EntVisit] Ent {} started visiting totem {} — {} ticks (animId={})",
+                                ent.getId(), totem.getTotemId(), ENT_VISIT_DURATION_TICKS,
+                                ent.getAnimation());
                     }
                 } else {
+                    log.debug("[EntVisit] Ent {} tick {} remaining, animId={}",
+                            ent.getId(), existing.ticksRemaining, ent.getAnimation());
                     existing.ticksRemaining--;
                     if (existing.ticksRemaining <= 0) {
                         activeVisits.remove(entKey);
