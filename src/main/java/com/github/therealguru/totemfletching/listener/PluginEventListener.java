@@ -1,7 +1,9 @@
 package com.github.therealguru.totemfletching.listener;
 
 import com.github.therealguru.totemfletching.TotemFletchingConfig;
+import com.github.therealguru.totemfletching.service.DecorationTrackerService;
 import com.github.therealguru.totemfletching.service.EntTrailService;
+import com.github.therealguru.totemfletching.service.EntVisitService;
 import com.github.therealguru.totemfletching.service.ResearchPointService;
 import com.github.therealguru.totemfletching.service.TotemService;
 import javax.inject.Inject;
@@ -22,6 +24,8 @@ public class PluginEventListener {
     private final Client client;
     private final TotemService totemService;
     private final EntTrailService entTrailService;
+    private final EntVisitService entVisitService;
+    private final DecorationTrackerService decorationTrackerService;
     private final ResearchPointService researchPointService;
     private final TotemFletchingConfig config;
 
@@ -54,6 +58,7 @@ public class PluginEventListener {
         if (event.getGameState().equals(GameState.LOADING)) {
             totemService.clearGameObjects();
             entTrailService.clearEntTrails();
+            entVisitService.clearVisits();
         }
     }
 
@@ -66,5 +71,26 @@ public class PluginEventListener {
     @Subscribe
     public void onGameTick(final GameTick gameTick) {
         totemService.updateClosestTotem(client.getLocalPlayer());
+        entVisitService.onGameTick(gameTick);
+    }
+
+    @Subscribe
+    public void onItemContainerChanged(final ItemContainerChanged event) {
+        decorationTrackerService.onItemContainerChanged(event);
+    }
+
+    @Subscribe
+    public void onNpcSpawned(final NpcSpawned event) {
+        entVisitService.onNpcSpawned(event);
+    }
+
+    @Subscribe
+    public void onNpcChanged(final NpcChanged event) {
+        entVisitService.onNpcChanged(event);
+    }
+
+    @Subscribe
+    public void onNpcDespawned(final NpcDespawned event) {
+        entVisitService.onNpcDespawned(event);
     }
 }

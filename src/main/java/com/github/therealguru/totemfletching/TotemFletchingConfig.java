@@ -109,6 +109,30 @@ public interface TotemFletchingConfig extends Config {
         return false;
     }
 
+    @ConfigItem(
+            keyName = "showDecorationTracker",
+            name = "Show Decoration Tracker",
+            description =
+                    "Show a panel tracking how many fletched decoration items are in your inventory"
+                            + " and how many more still need to be fletched for remaining totems",
+            section = sectionOverlays,
+            position = 9)
+    default boolean showDecorationTracker() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "showEntVisitTimer",
+            name = "Show Ent Visit Timer",
+            description =
+                    "Show a circular countdown timer over a totem when an Ent is visiting it."
+                            + " Helps you know if you have time to decorate before it leaves",
+            section = sectionOverlays,
+            position = 10)
+    default boolean showEntVisitTimer() {
+        return true;
+    }
+
     @ConfigSection(
             name = "Color Settings",
             description = "Pick colors for each overlay element",
