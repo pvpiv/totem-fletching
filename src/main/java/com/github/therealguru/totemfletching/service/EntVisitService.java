@@ -140,12 +140,18 @@ public class EntVisitService {
                 EntVisit existing = activeVisits.get(entKey);
 
                 if (existing == null || !existing.totem.equals(totem)) {
-                    // Only start a new visit if not in post-visit cooldown for this Ent
-                    if (!postVisitCooldown.containsKey(entKey)) {
+                    int anim = ent.getAnimation();
+                    // Only start the timer when the Ent is actively animating (not walking/idle = -1)
+                    // and not the departure animation. This prevents the timer starting while the
+                    // Ent is still on the ramp approaching the totem.
+                    boolean isOffering = anim != -1 && anim != ENT_DEPARTURE_ANIM;
+                    log.debug("[EntVisit] Ent {} near totem {} — animId={} offering={}",
+                            ent.getId(), totem.getTotemId(), anim, isOffering);
+
+                    if (isOffering && !postVisitCooldown.containsKey(entKey)) {
                         activeVisits.put(entKey, new EntVisit(totem, ENT_VISIT_DURATION_TICKS));
-                        log.debug("[EntVisit] Ent {} started visiting totem {} — {} ticks (animId={})",
-                                ent.getId(), totem.getTotemId(), ENT_VISIT_DURATION_TICKS,
-                                ent.getAnimation());
+                        log.debug("[EntVisit] Ent {} started offering at totem {} — {} ticks",
+                                ent.getId(), totem.getTotemId(), ENT_VISIT_DURATION_TICKS);
                     }
                 } else {
                     log.debug("[EntVisit] Ent {} tick {} remaining, animId={}",
