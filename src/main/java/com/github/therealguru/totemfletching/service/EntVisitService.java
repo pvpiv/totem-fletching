@@ -11,6 +11,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.NPC;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.NpcChanged;
 import net.runelite.api.events.NpcDespawned;
@@ -62,6 +63,14 @@ public class EntVisitService {
      */
     private final Map<Integer, Integer> postVisitCooldown = new HashMap<>();
 
+    /**
+     * Last known position of each tracked Ent.
+     * Used to detect when the Ent has stopped moving (i.e. arrived at the totem platform).
+     * The timer only starts once the Ent is stationary — prevents false-triggers
+     * from the Ent walking past within proximity while on the approach ramp.
+     */
+    private final Map<Integer, WorldPoint> lastEntPositions = new HashMap<>();
+
     @Inject
     public EntVisitService(TotemService totemService) {
         this.totemService = totemService;
@@ -108,6 +117,7 @@ public class EntVisitService {
         trackedEnts.remove(key);
         activeVisits.remove(key);
         postVisitCooldown.remove(key);
+        lastEntPositions.remove(key);
         log.debug("[EntVisit] Ent despawned: id={}", npc.getId());
     }
 
@@ -131,7 +141,13 @@ public class EntVisitService {
             int entKey = entry.getKey();
             NPC ent = entry.getValue();
 
-            if (ent.getWorldLocation() == null) continue;
+            WorldPoint currentPos = ent.getWorldLocation();
+            if (currentPos == null) continue;
+
+            // Track whether the Ent moved this tick
+            WorldPoint lastPos = lastEntPositions.get(entKey);
+            lastEntPositions.put(entKey, currentPos);
+            boolean isStationary = lastPos != null && lastPos.equals(currentPos);
 
             Optional<Totem> nearbyTotem = findNearbyTotem(ent, totems);
 
@@ -140,11 +156,16 @@ public class EntVisitService {
                 EntVisit existing = activeVisits.get(entKey);
 
                 if (existing == null || !existing.totem.equals(totem)) {
-                    if (!postVisitCooldown.containsKey(entKey)) {
+                    // Only start the timer once the Ent has stopped moving.
+                    // While on the ramp/approach the Ent moves each tick, so isStationary=false.
+                    if (isStationary && !postVisitCooldown.containsKey(entKey)) {
                         activeVisits.put(entKey, new EntVisit(totem, ENT_VISIT_DURATION_TICKS));
                         log.debug("[EntVisit] Ent {} started visiting totem {} — {} ticks (animId={})",
                                 ent.getId(), totem.getTotemId(), ENT_VISIT_DURATION_TICKS,
                                 ent.getAnimation());
+                    } else if (!isStationary) {
+                        log.debug("[EntVisit] Ent {} near totem {} but still moving — waiting",
+                                ent.getId(), totem.getTotemId());
                     }
                 } else {
                     log.debug("[EntVisit] Ent {} tick {} remaining, animId={}",
@@ -172,6 +193,7 @@ public class EntVisitService {
         activeVisits.clear();
         trackedEnts.clear();
         postVisitCooldown.clear();
+        lastEntPositions.clear();
     }
 
     private Optional<Totem> findNearbyTotem(NPC ent, List<Totem> totems) {
