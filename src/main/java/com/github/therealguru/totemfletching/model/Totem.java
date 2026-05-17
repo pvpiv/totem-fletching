@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 import net.runelite.api.Client;
 import net.runelite.api.GameObject;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.config.Notification;
 
 @Getter
@@ -24,6 +25,12 @@ public class Totem {
     private GameObject pointsGameObject;
     private boolean carved = false;
     private int decoration = 0;
+    /**
+     * Last known world position of this totem site. Populated whenever the totem game object
+     * is registered, so proximity detection works even if the object is temporarily null.
+     */
+    @Getter
+    private WorldPoint lastKnownPosition = null;
     private int decay = 0;
     private int base = 0;
     private int[] animals = new int[3];

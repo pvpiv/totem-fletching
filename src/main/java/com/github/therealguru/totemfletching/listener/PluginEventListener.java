@@ -1,6 +1,7 @@
 package com.github.therealguru.totemfletching.listener;
 
 import com.github.therealguru.totemfletching.TotemFletchingConfig;
+import com.github.therealguru.totemfletching.overlay.DecorationTrackerOverlay;
 import com.github.therealguru.totemfletching.service.DecorationTrackerService;
 import com.github.therealguru.totemfletching.service.EntTrailService;
 import com.github.therealguru.totemfletching.service.EntVisitService;
@@ -16,6 +17,7 @@ import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.OverlayMenuClicked;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -26,6 +28,7 @@ public class PluginEventListener {
     private final EntTrailService entTrailService;
     private final EntVisitService entVisitService;
     private final DecorationTrackerService decorationTrackerService;
+    private final DecorationTrackerOverlay decorationTrackerOverlay;
     private final ResearchPointService researchPointService;
     private final TotemFletchingConfig config;
 
@@ -72,6 +75,15 @@ public class PluginEventListener {
     public void onGameTick(final GameTick gameTick) {
         totemService.updateClosestTotem(client.getLocalPlayer());
         entVisitService.onGameTick(gameTick);
+        decorationTrackerService.onGameTick();
+    }
+
+    @Subscribe
+    public void onOverlayMenuClicked(OverlayMenuClicked event) {
+        if (event.getOverlay() == decorationTrackerOverlay
+                && DecorationTrackerOverlay.RESET_OPTION.equals(event.getEntry().getOption())) {
+            decorationTrackerService.resetRun();
+        }
     }
 
     @Subscribe

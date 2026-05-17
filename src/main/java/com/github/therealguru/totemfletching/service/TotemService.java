@@ -134,6 +134,7 @@ public class TotemService {
         for (Totem totem : totems) {
             if (totem.getTotemGameObjectId() == gameObject.getId()) {
                 totem.setTotemGameObject(gameObject);
+                totem.setLastKnownPosition(gameObject.getWorldLocation());
             } else if (totem.getPointsGameObjectId() == gameObject.getId()) {
                 totem.setPointsGameObject(gameObject);
             }

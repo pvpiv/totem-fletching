@@ -194,11 +194,17 @@ public class EntVisitService {
     }
 
     private Optional<Totem> findNearbyTotem(NPC ent, List<Totem> totems) {
+        WorldPoint entPos = ent.getWorldLocation();
         return totems.stream()
-                .filter(t -> t.getTotemGameObject() != null)
-                .filter(t -> t.getTotemGameObject()
-                        .getWorldLocation()
-                        .distanceTo(ent.getWorldLocation()) <= TOTEM_PROXIMITY_TILES)
+                .filter(t -> {
+                    // Prefer the live game object position; fall back to last cached position.
+                    // This ensures proximity detection works even if the base object is
+                    // temporarily unregistered (e.g. Ent arrives before scene fully loads).
+                    WorldPoint totemPos = t.getTotemGameObject() != null
+                            ? t.getTotemGameObject().getWorldLocation()
+                            : t.getLastKnownPosition();
+                    return totemPos != null && totemPos.distanceTo(entPos) <= TOTEM_PROXIMITY_TILES;
+                })
                 .findFirst();
     }
 
