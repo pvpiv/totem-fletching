@@ -48,47 +48,56 @@ public class DecorationTrackerService {
     /** Decorations required to fully deck all 8 totems (8 totems × 4 decorations). */
     static final int TOTAL_DECORATIONS_NEEDED = 32;
 
-    /** Current decoration item count in the player's inventory. */
+    /** Decoration items in the player's main inventory (shown as "In bag"). */
     @Getter
     private int inventoryDecorationCount = 0;
 
+    /** Decoration items currently equipped (e.g. redwood hiking staff, shield). */
+    private int equippedDecorationCount = 0;
+
     /**
      * How many items the player still needs to fletch to finish the run.
-     * Calculated on run-start as max(0, 32 - startingInventory), then decremented
-     * each time the inventory count rises (i.e. an item was fletched).
+     * Calculated on run-start as max(0, 32 - startingTotal), then decremented
+     * each time the combined total (inventory + equipped) rises.
      */
     private int runFletchTarget = 8;
 
-    /** Cumulative count of decoration items fletched since the run started. */
-    private int itemsFletched = 0;
+    /** Cumulative count of new decoration items obtained since the run started. */
+    private int itemsObtained = 0;
 
     /**
-     * Last inventory count snapshot. Used to detect increases (fletching)
-     * vs. decreases (placing at totems, banking).
+     * Last known combined total (inventory + equipped).
+     * Only increases in this total count as "new items obtained" (fletched, traded, picked up).
+     * Equipping/unequipping moves items between containers — total unchanged, no count change.
      * -1 means "not yet seen".
      */
-    private int lastInventoryCount = -1;
+    private int lastTotalCount = -1;
 
     /** Used to detect the moment the player enters Auburnvale. */
     private boolean wasInAuburnvale = false;
 
     public void onItemContainerChanged(ItemContainerChanged event) {
-        if (event.getContainerId() != InventoryID.INVENTORY.getId()) {
+        int containerId = event.getContainerId();
+        if (containerId == InventoryID.INVENTORY.getId()) {
+            inventoryDecorationCount = countDecorations(event.getItemContainer());
+            log.debug("Decoration items in inventory: {}", inventoryDecorationCount);
+        } else if (containerId == InventoryID.EQUIPMENT.getId()) {
+            equippedDecorationCount = countDecorations(event.getItemContainer());
+            log.debug("Decoration items equipped: {}", equippedDecorationCount);
+        } else {
             return;
         }
 
-        int newCount = countDecorations(event.getItemContainer());
+        int newTotal = inventoryDecorationCount + equippedDecorationCount;
 
-        // Only count increases — those represent items just fletched.
-        // Decreases happen when placing decorations at totems (expected) or banking.
-        if (lastInventoryCount >= 0 && newCount > lastInventoryCount) {
-            itemsFletched += (newCount - lastInventoryCount);
-            log.debug("Fletched +{}, total this run: {}", newCount - lastInventoryCount, itemsFletched);
+        // Only count increases in the combined total.
+        // Equipping/unequipping shifts between containers but leaves total unchanged.
+        if (lastTotalCount >= 0 && newTotal > lastTotalCount) {
+            itemsObtained += (newTotal - lastTotalCount);
+            log.debug("New decorations obtained +{}, total this run: {}", newTotal - lastTotalCount, itemsObtained);
         }
 
-        lastInventoryCount = newCount;
-        inventoryDecorationCount = newCount;
-        log.debug("Decoration items in inventory: {}", inventoryDecorationCount);
+        lastTotalCount = newTotal;
     }
 
     /**
@@ -109,13 +118,14 @@ public class DecorationTrackerService {
 
     /** How many more items the player needs to fletch to complete the current run. */
     public int getItemsToFletch() {
-        return Math.max(0, runFletchTarget - itemsFletched);
+        return Math.max(0, runFletchTarget - itemsObtained);
     }
 
     private void startRun() {
-        runFletchTarget = Math.max(0, TOTAL_DECORATIONS_NEEDED - inventoryDecorationCount);
-        itemsFletched = 0;
-        log.debug("Run started — inventory: {}, target to fletch: {}", inventoryDecorationCount, runFletchTarget);
+        int startingTotal = inventoryDecorationCount + equippedDecorationCount;
+        runFletchTarget = Math.max(0, TOTAL_DECORATIONS_NEEDED - startingTotal);
+        itemsObtained = 0;
+        log.debug("Run started — total decorations: {}, target to fletch: {}", startingTotal, runFletchTarget);
     }
 
     private int countDecorations(ItemContainer container) {
