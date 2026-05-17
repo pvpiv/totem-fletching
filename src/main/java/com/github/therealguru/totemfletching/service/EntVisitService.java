@@ -29,11 +29,11 @@ public class EntVisitService {
 
     /**
      * Duration of an Ent offering visit in game ticks.
-     * Observed: departure animation (animId=12511) fires ~9 seconds after proximity
-     * detection, which is 15 ticks at 0.6 s/tick.
-     * The countdown hitting 0 aligns with the offerings being granted and the Ent leaving.
+     * Per the Vale Totems wiki: the Ent admires the totem for exactly 14 ticks before
+     * granting offerings. Decorations placed before tick 14 still count.
+     * After granting offerings the Ent waits 8 more ticks before walking away.
      */
-    public static final int ENT_VISIT_DURATION_TICKS = 15;
+    public static final int ENT_VISIT_DURATION_TICKS = 14;
 
     /** Game ticks per minute — 100 ticks/min = 0.6 s/tick. */
     public static final double TICKS_PER_SECOND = 100.0 / 60.0;
@@ -163,9 +163,6 @@ public class EntVisitService {
                         log.debug("[EntVisit] Ent {} started visiting totem {} — {} ticks (animId={})",
                                 ent.getId(), totem.getTotemId(), ENT_VISIT_DURATION_TICKS,
                                 ent.getAnimation());
-                    } else if (!isStationary) {
-                        log.debug("[EntVisit] Ent {} near totem {} but still moving — waiting",
-                                ent.getId(), totem.getTotemId());
                     }
                 } else {
                     log.debug("[EntVisit] Ent {} tick {} remaining, animId={}",
