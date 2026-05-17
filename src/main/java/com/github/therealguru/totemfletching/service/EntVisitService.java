@@ -24,7 +24,7 @@ public class EntVisitService {
     private static final List<Integer> ENT_NPC_IDS = List.of(14634, 14635);
 
     /** How close (in tiles) the Ent must be to a totem to trigger the visit timer. */
-    private static final int TOTEM_PROXIMITY_TILES = 5;
+    private static final int TOTEM_PROXIMITY_TILES = 3;
 
     /**
      * Duration of an Ent offering visit in game ticks.
@@ -93,10 +93,10 @@ public class EntVisitService {
 
         if (npc.getAnimation() == ENT_DEPARTURE_ANIM) {
             int key = System.identityHashCode(npc);
-            activeVisits.remove(key);
+            boolean hadActiveVisit = activeVisits.remove(key) != null;
             postVisitCooldown.put(key, POST_VISIT_COOLDOWN_TICKS);
-            log.debug("[EntVisit] Ent {} departure anim detected — visit ended, cooldown {} ticks",
-                    npc.getId(), POST_VISIT_COOLDOWN_TICKS);
+            log.debug("[EntVisit] Ent {} departure anim detected — hadActiveVisit={}, cooldown {} ticks",
+                    npc.getId(), hadActiveVisit, POST_VISIT_COOLDOWN_TICKS);
         }
     }
 
@@ -140,18 +140,11 @@ public class EntVisitService {
                 EntVisit existing = activeVisits.get(entKey);
 
                 if (existing == null || !existing.totem.equals(totem)) {
-                    int anim = ent.getAnimation();
-                    // Only start the timer when the Ent is actively animating (not walking/idle = -1)
-                    // and not the departure animation. This prevents the timer starting while the
-                    // Ent is still on the ramp approaching the totem.
-                    boolean isOffering = anim != -1 && anim != ENT_DEPARTURE_ANIM;
-                    log.debug("[EntVisit] Ent {} near totem {} — animId={} offering={}",
-                            ent.getId(), totem.getTotemId(), anim, isOffering);
-
-                    if (isOffering && !postVisitCooldown.containsKey(entKey)) {
+                    if (!postVisitCooldown.containsKey(entKey)) {
                         activeVisits.put(entKey, new EntVisit(totem, ENT_VISIT_DURATION_TICKS));
-                        log.debug("[EntVisit] Ent {} started offering at totem {} — {} ticks",
-                                ent.getId(), totem.getTotemId(), ENT_VISIT_DURATION_TICKS);
+                        log.debug("[EntVisit] Ent {} started visiting totem {} — {} ticks (animId={})",
+                                ent.getId(), totem.getTotemId(), ENT_VISIT_DURATION_TICKS,
+                                ent.getAnimation());
                     }
                 } else {
                     log.debug("[EntVisit] Ent {} tick {} remaining, animId={}",
