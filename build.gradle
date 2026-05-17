@@ -53,6 +53,9 @@ tasks.register('runDev', JavaExec) {
     mainClass = 'com.github.therealguru.totemfletching.TotemFletchingPluginTest'
     // Allow RuneLite to open a window
     jvmArgs '-ea'
+    // Use an isolated data directory so this dev build never touches your
+    // regular RuneLite profile, loot tracker, or any other saved data.
+    args '--runelite-dir=' + project.file("${rootDir}/.runelite-dev").absolutePath
 }
 
 tasks.register('shadowJar', Jar) {
