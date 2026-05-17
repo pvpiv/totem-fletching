@@ -45,6 +45,16 @@ tasks.withType(JavaCompile).configureEach {
     options.release.set(11)
 }
 
+// Launches a full RuneLite client with the plugin loaded for local testing.
+// Run with:  ./gradlew runDev
+tasks.register('runDev', JavaExec) {
+    dependsOn compileTestJava
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.github.therealguru.totemfletching.TotemFletchingPluginTest'
+    // Allow RuneLite to open a window
+    jvmArgs '-ea'
+}
+
 tasks.register('shadowJar', Jar) {
     dependsOn configurations.testRuntimeClasspath
     manifest {
